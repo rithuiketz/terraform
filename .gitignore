@@ -2,3 +2,6 @@
 *.hcl
 *.tfstate
 *.plan
+*.tfvars
+.terraform.tfstate.lock.info
+creds.tfvars

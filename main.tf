@@ -1,28 +1,41 @@
-data "aws_caller_identity" "current" {}
+provider "aws" {
 
-# Step 1: Create Databricks Storage Credential (Bucket not needed yet!)
-resource "databricks_storage_credential" "external" {
-  name = "${var.s3_bucket_name}-credential"
-  aws_iam_role {
-    role_arn = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${var.role_name}"
-  }
+  access_key = var.AWS_ACCESS_KEY
+  secret_key = var.AWS_SECRET_KEY
+  region = "us-east-2"
 }
 
-# Step 2: Create AWS S3 Bucket and IAM Role using external_id from Step 1
-module "aws_s3_role" {
-  source         = "./modules/aws_s3_role"
-  s3_bucket_name = var.s3_bucket_name
-  role_name      = var.role_name
-  external_id    = databricks_storage_credential.external.aws_iam_role[0].external_id
+provider "databricks" {
+  host  = var.DATABRICKS_HOST
+  token = var.DATABRICKS_TOKEN
 }
 
-# Step 3: Create Databricks External Location (Only AFTER S3 bucket & IAM role exist)
-resource "databricks_external_location" "this" {
-  name            = "Rithuik-location"
-  url             = "s3://${module.aws_s3_role.bucket_name}"
-  credential_name = databricks_storage_credential.external.id
-  comment         = "External location managed by Terraform"
 
-  # Explicit dependency ensures S3 bucket and IAM policy are fully applied first
-  depends_on = [module.aws_s3_role]
+
+module "aws_s3" {
+  source = "./aws/s3"
 }
+
+module "aws_iam" {
+
+  source        = "./aws/role"
+  depends_on    = [module.aws_s3]
+  S3_BUCKET_ARN = module.aws_s3.aws_bucket_arn
+  S3_BUCKET_ID  = module.aws_s3.aws_bucket_id
+}
+
+
+module "dbx" {
+  source   = "./dbx"
+  iam_role = module.aws_iam.iam_role_arn
+
+}
+
+
+
+
+
+
+
+
+
